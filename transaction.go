@@ -125,6 +125,21 @@ func (s *TransactionService) Get(transactionID string) (*Transaction, *http.Resp
 	return transaction, resp, nil
 }
 
+func (s *TransactionService) List() ([]Transaction, *http.Response, error) {
+	req, err := s.client.NewRequest("transactions", http.MethodGet, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var transactions []Transaction
+	resp, err := s.client.CallWithRetry(req, &transactions)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return transactions, resp, nil
+}
+
 func NewTransactionService(client ClientInterface) *TransactionService {
 	return &TransactionService{client: client}
 }

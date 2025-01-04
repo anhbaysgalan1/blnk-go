@@ -540,3 +540,113 @@ func TestTransactionService_Get(t *testing.T) {
 		})
 	}
 }
+
+func TestTransactionService_List(t *testing.T) {
+	tests := []struct {
+		name        string
+		expectError bool
+		errorMsg    string
+		statusCode  int
+		setupMocks  func(*MockClient)
+	}{
+		{
+			name:        "successful list",
+			expectError: false,
+			statusCode:  http.StatusOK,
+			setupMocks: func(m *MockClient) {
+				fixedTime := time.Date(2023, time.October, 1, 0, 0, 0, 0, time.UTC)
+				expectedResponse := []blnkgo.Transaction{
+					{
+						ParentTransaction: blnkgo.ParentTransaction{
+							Amount:      1000,
+							Reference:   "ref-21",
+							Precision:   100,
+							Currency:    "USD",
+							Source:      "@bank-account",
+							Destination: "@World",
+							Status:      blnkgo.PryTransactionStatusApplied,
+							Description: "First Transaction",
+						},
+						TransactionID: "tx-123",
+						CreatedAt:     fixedTime,
+					},
+					{
+						ParentTransaction: blnkgo.ParentTransaction{
+							Amount:      2000,
+							Reference:   "ref-22",
+							Precision:   100,
+							Currency:    "USD",
+							Source:      "@bank-account",
+							Destination: "@World",
+							Status:      blnkgo.PryTransactionStatusApplied,
+							Description: "Second Transaction",
+						},
+						TransactionID: "tx-124",
+						CreatedAt:     fixedTime,
+					},
+				}
+
+				m.On("NewRequest", "transactions", http.MethodGet, nil).
+					Return(&http.Request{}, nil)
+				m.On("CallWithRetry", mock.Anything, mock.Anything).
+					Return(&http.Response{StatusCode: http.StatusOK}, nil).
+					Run(func(args mock.Arguments) {
+						transactions := args.Get(1).(*[]blnkgo.Transaction)
+						*transactions = expectedResponse
+					})
+			},
+		},
+		{
+			name:        "request creation failure",
+			expectError: true,
+			errorMsg:    "failed to create request",
+			setupMocks: func(m *MockClient) {
+				m.On("NewRequest", "transactions", http.MethodGet, nil).
+					Return(nil, errors.New("failed to create request"))
+			},
+		},
+		{
+			name:        "server error",
+			expectError: true,
+			errorMsg:    "server error",
+			statusCode:  http.StatusInternalServerError,
+			setupMocks: func(m *MockClient) {
+				m.On("NewRequest", "transactions", http.MethodGet, nil).
+					Return(&http.Request{}, nil)
+				m.On("CallWithRetry", mock.Anything, mock.Anything).
+					Return(&http.Response{StatusCode: http.StatusInternalServerError},
+						errors.New("server error"))
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockClient, svc := setupTransactionService()
+			tt.setupMocks(mockClient)
+
+			transactions, resp, err := svc.List()
+
+			if tt.expectError {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errorMsg)
+				if tt.name == "request creation failure" {
+					assert.Nil(t, transactions)
+					assert.Nil(t, resp)
+					mockClient.AssertNotCalled(t, "CallWithRetry")
+				} else {
+					assert.Equal(t, tt.statusCode, resp.StatusCode)
+				}
+			} else {
+				assert.NoError(t, err)
+				assert.NotNil(t, transactions)
+				assert.NotNil(t, resp)
+				assert.Equal(t, tt.statusCode, resp.StatusCode)
+				assert.Len(t, transactions, 2)
+				assert.Equal(t, "tx-123", transactions[0].TransactionID)
+				assert.Equal(t, "tx-124", transactions[1].TransactionID)
+			}
+			mockClient.AssertExpectations(t)
+		})
+	}
+}
