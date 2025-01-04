@@ -1,4 +1,4 @@
-module github.com/blnkfinance/blnk-go
+module github.com/anhbaysgalan1/blnk-go
 
 go 1.22.2
 
