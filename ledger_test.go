@@ -16,6 +16,7 @@ func setupLedgerService() (*MockClient, *blnkgo.LedgerService) {
 	svc := blnkgo.NewLedgerService(mockClient)
 	return mockClient, svc
 }
+
 func TestLedgerService_Create_Success(t *testing.T) {
 	mockClient, svc := setupLedgerService()
 

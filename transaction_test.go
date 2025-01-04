@@ -13,40 +13,11 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-type MockClient struct {
-	mock.Mock
-}
-
 type Tests[T any] struct {
 	name        string
 	body        T
 	expectError bool
 	errorMsg    string
-}
-
-// NewRequest is a mock method that simulates creating a new HTTP request.
-func (m *MockClient) NewRequest(endpoint string, method string, body interface{}) (*http.Request, error) {
-	args := m.Called(endpoint, method, body)
-	if req, ok := args.Get(0).(*http.Request); ok || args.Get(0) == nil {
-		return req, args.Error(1)
-	}
-
-	return nil, args.Error(1)
-}
-
-// CallWithRetry is a mock method that simulates making an HTTP call with retry logic.
-func (m *MockClient) CallWithRetry(req *http.Request, v interface{}) (*http.Response, error) {
-	args := m.Called(req, v)
-	if resp, ok := args.Get(0).(*http.Response); ok || args.Get(0) == nil {
-		return resp, args.Error(1)
-	}
-
-	return nil, args.Error(1)
-}
-
-func (m *MockClient) NewFileUploadRequest(endpoint string, fileParam string, file interface{}, fileName string, fields map[string]string) (*http.Request, error) {
-	args := m.Called(endpoint, fileParam, file)
-	return args.Get(0).(*http.Request), args.Error(1)
 }
 
 // Helper function to setup mock client and service
