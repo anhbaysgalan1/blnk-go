@@ -1,6 +1,7 @@
 package blnkgo
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -32,7 +33,8 @@ type SearchResponse struct {
 }
 
 type SearchHit struct {
-	Document Document `json:"document"`
+	RawDocument json.RawMessage `json:"document"`
+	Document    Document        `json:"-"`
 }
 
 type Document interface {
@@ -40,17 +42,7 @@ type Document interface {
 	GetMetaData() map[string]interface{}
 }
 
-func (l *Ledger) GetCreatedAt() time.Time             { return l.CreatedAt }
-func (l *Ledger) GetMetaData() map[string]interface{} { return l.MetaData }
-
-func (b *LedgerBalance) GetCreatedAt() time.Time             { return b.CreatedAt }
-func (b *LedgerBalance) GetMetaData() map[string]interface{} { return b.MetaData }
-
-func (t *Transaction) GetCreatedAt() time.Time             { return t.CreatedAt }
-func (t *Transaction) GetMetaData() map[string]interface{} { return t.MetaData }
-
 func (s *SearchService) SearchDocument(params SearchParams, resource ResourceType) (*SearchResponse, *http.Response, error) {
-	// Validate search query
 	if params.Q == "" {
 		return nil, nil, fmt.Errorf("search query is required")
 	}
@@ -67,5 +59,38 @@ func (s *SearchService) SearchDocument(params SearchParams, resource ResourceTyp
 		return nil, resp, err
 	}
 
+	// Process each hit to convert RawDocument to proper type
+	for i := range searchResp.Hits {
+		if err := unmarshalDocument(&searchResp.Hits[i], resource); err != nil {
+			return nil, resp, fmt.Errorf("failed to unmarshal document: %w", err)
+		}
+	}
+
 	return searchResp, resp, nil
+}
+
+func unmarshalDocument(hit *SearchHit, resource ResourceType) error {
+	switch resource {
+	case ResourceLedgers:
+		var doc Ledger
+		if err := json.Unmarshal(hit.RawDocument, &doc); err != nil {
+			return err
+		}
+		hit.Document = &doc
+	case ResourceBalances:
+		var doc LedgerBalance
+		if err := json.Unmarshal(hit.RawDocument, &doc); err != nil {
+			return err
+		}
+		hit.Document = &doc
+	case ResourceTransactions:
+		var doc Transaction
+		if err := json.Unmarshal(hit.RawDocument, &doc); err != nil {
+			return err
+		}
+		hit.Document = &doc
+	default:
+		return fmt.Errorf("unsupported resource type: %s", resource)
+	}
+	return nil
 }
