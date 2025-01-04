@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/url"
 
-	blnkgo "github.com/blnkfinance/blnk-go"
+	blnkgo "github.com/anhbaysgalan1/blnk-go"
 )
 
 func main() {
