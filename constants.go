@@ -97,8 +97,8 @@ type ResourceType string
 
 const (
 	ResourceLedgers      ResourceType = "ledgers"
-	ResourceTransactions ResourceType = "transactions"
 	ResourceBalances     ResourceType = "balances"
+	ResourceTransactions ResourceType = "transactions"
 )
 
 type CriteriaField string
