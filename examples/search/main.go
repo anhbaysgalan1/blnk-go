@@ -29,6 +29,11 @@ func main() {
 		log.Fatalf("Failed to search ledgers: %v", err)
 	}
 	fmt.Printf("Found %d ledgers\n", ledgerResults.Found)
+	for _, hit := range ledgerResults.Hits {
+		if ledger, ok := hit.Document.(*blnkgo.Ledger); ok {
+			fmt.Printf("Ledger: %s (ID: %s)\n", ledger.Name, ledger.LedgerID)
+		}
+	}
 
 	// Example 2: Search for balances
 	balanceParams := blnkgo.SearchParams{
@@ -42,6 +47,11 @@ func main() {
 		log.Fatalf("Failed to search balances: %v", err)
 	}
 	fmt.Printf("Found %d balances\n", balanceResults.Found)
+	for _, hit := range balanceResults.Hits {
+		if balance, ok := hit.Document.(*blnkgo.LedgerBalance); ok {
+			fmt.Printf("Balance: %f %s (ID: %s)\n", balance.Balance, balance.Currency, balance.BalanceID)
+		}
+	}
 
 	// Example 3: Search for transactions
 	txParams := blnkgo.SearchParams{
@@ -55,6 +65,11 @@ func main() {
 		log.Fatalf("Failed to search transactions: %v", err)
 	}
 	fmt.Printf("Found %d transactions\n", txResults.Found)
+	for _, hit := range txResults.Hits {
+		if tx, ok := hit.Document.(*blnkgo.Transaction); ok {
+			fmt.Printf("Transaction: %f %s (ID: %s)\n", tx.Amount, tx.Currency, tx.TransactionID)
+		}
+	}
 }
 
 func stringPtr(s string) *string {

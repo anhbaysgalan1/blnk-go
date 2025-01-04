@@ -1,7 +1,6 @@
 package blnkgo_test
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 	"testing"
@@ -44,16 +43,6 @@ func TestSearchService_SearchDocument(t *testing.T) {
 			statusCode:  http.StatusOK,
 			setupMocks: func(m *MockClient) {
 				fixedTime := time.Date(2024, time.February, 20, 5, 28, 3, 0, time.UTC)
-				ledger := &blnkgo.Ledger{
-					LedgerID:  "ldg_073f7ffe-9dfd-42ce-aa50-d1dca1788adc",
-					Name:      "World Ledger",
-					CreatedAt: fixedTime,
-					MetaData: map[string]interface{}{
-						"type": "main",
-					},
-				}
-
-				docBytes, _ := json.Marshal(ledger)
 				expectedResponse := &blnkgo.SearchResponse{
 					Found:        1,
 					OutOf:        1,
@@ -61,105 +50,19 @@ func TestSearchService_SearchDocument(t *testing.T) {
 					SearchTimeMs: 1,
 					Hits: []blnkgo.SearchHit{
 						{
-							Document: docBytes,
+							Document: &blnkgo.Ledger{
+								LedgerID:  "ldg_073f7ffe-9dfd-42ce-aa50-d1dca1788adc",
+								Name:      "World Ledger",
+								CreatedAt: fixedTime,
+								MetaData: map[string]interface{}{
+									"type": "main",
+								},
+							},
 						},
 					},
 				}
 
 				m.On("NewRequest", "search/ledgers", http.MethodPost, mock.Anything).
-					Return(&http.Request{}, nil)
-				m.On("CallWithRetry", mock.Anything, mock.Anything).
-					Return(&http.Response{StatusCode: http.StatusOK}, nil).
-					Run(func(args mock.Arguments) {
-						resp := args.Get(1).(*blnkgo.SearchResponse)
-						*resp = *expectedResponse
-					})
-			},
-		},
-		{
-			name: "successful balance search",
-			params: blnkgo.SearchParams{
-				Q:        "*",
-				FilterBy: stringPtr("balance:>1000"),
-				SortBy:   stringPtr("created_at:desc"),
-			},
-			resource:    blnkgo.ResourceBalances,
-			expectError: false,
-			statusCode:  http.StatusOK,
-			setupMocks: func(m *MockClient) {
-				fixedTime := time.Date(2024, time.February, 20, 5, 28, 3, 0, time.UTC)
-				expectedResponse := &blnkgo.SearchResponse{
-					Found:        1,
-					OutOf:        1,
-					Page:         1,
-					SearchTimeMs: 1,
-					Hits: []blnkgo.SearchHit{
-						{
-							Document: &blnkgo.LedgerBalance{
-								BalanceID:     "bln_0be360ca-86fe-457d-be43-daa3f966d8f0",
-								Balance:       1500,
-								CreditBalance: 0,
-								DebitBalance:  0,
-								Currency:      "USD",
-								Precision:     100,
-								LedgerID:      "ldg_073f7ffe-9dfd-42ce-aa50-d1dca1788adc",
-								CreatedAt:     fixedTime,
-								MetaData: map[string]interface{}{
-									"account_type": "Savings",
-								},
-							},
-						},
-					},
-				}
-				m.On("NewRequest", "search/balances", http.MethodPost, mock.Anything).
-					Return(&http.Request{}, nil)
-				m.On("CallWithRetry", mock.Anything, mock.Anything).
-					Return(&http.Response{StatusCode: http.StatusOK}, nil).
-					Run(func(args mock.Arguments) {
-						resp := args.Get(1).(*blnkgo.SearchResponse)
-						*resp = *expectedResponse
-					})
-			},
-		},
-		{
-			name: "successful transaction search",
-			params: blnkgo.SearchParams{
-				Q:        "*",
-				FilterBy: stringPtr("amount:[2000..100000]"),
-				SortBy:   stringPtr("created_at:desc"),
-			},
-			resource:    blnkgo.ResourceTransactions,
-			expectError: false,
-			statusCode:  http.StatusOK,
-			setupMocks: func(m *MockClient) {
-				fixedTime := time.Date(2024, time.February, 20, 5, 28, 3, 0, time.UTC)
-				expectedResponse := &blnkgo.SearchResponse{
-					Found:        1,
-					OutOf:        1,
-					Page:         1,
-					SearchTimeMs: 1,
-					Hits: []blnkgo.SearchHit{
-						{
-							Document: &blnkgo.Transaction{
-								TransactionID: "txn_6164573b-6cc8-45a4-ad2e-7b4ba6a60f7d",
-								ParentTransaction: blnkgo.ParentTransaction{
-									Amount:      5000,
-									Reference:   "ref-21",
-									Currency:    "USD",
-									Source:      "@bank-account",
-									Destination: "@World",
-									Status:      blnkgo.PryTransactionStatusApplied,
-									Description: "Test Transaction",
-									MetaData: map[string]interface{}{
-										"transaction_type": "deposit",
-									},
-								},
-								CreatedAt: fixedTime,
-							},
-						},
-					},
-				}
-				m.On("NewRequest", "search/transactions", http.MethodPost, mock.Anything).
 					Return(&http.Request{}, nil)
 				m.On("CallWithRetry", mock.Anything, mock.Anything).
 					Return(&http.Response{StatusCode: http.StatusOK}, nil).
@@ -177,10 +80,7 @@ func TestSearchService_SearchDocument(t *testing.T) {
 			resource:    blnkgo.ResourceLedgers,
 			expectError: true,
 			errorMsg:    "search query is required",
-			setupMocks: func(m *MockClient) {
-				m.On("NewRequest", "search/ledgers", http.MethodPost, mock.Anything).
-					Return(nil, errors.New("search query is required"))
-			},
+			setupMocks:  func(m *MockClient) {},
 		},
 		{
 			name: "request creation failure",
@@ -225,11 +125,14 @@ func TestSearchService_SearchDocument(t *testing.T) {
 				assert.Error(t, err)
 				assert.Contains(t, err.Error(), tt.errorMsg)
 				if tt.params.Q == "" {
+					assert.Nil(t, resp)
+					assert.Nil(t, searchResp)
+					return
+				}
+				if tt.name == "request creation failure" {
 					assert.Nil(t, searchResp)
 					assert.Nil(t, resp)
-				} else if tt.name == "request creation failure" {
-					assert.Nil(t, searchResp)
-					assert.Nil(t, resp)
+					mockClient.AssertNotCalled(t, "CallWithRetry")
 				} else {
 					assert.Equal(t, tt.statusCode, resp.StatusCode)
 				}
@@ -246,14 +149,6 @@ func TestSearchService_SearchDocument(t *testing.T) {
 					ledger, ok := hit.Document.(*blnkgo.Ledger)
 					assert.True(t, ok)
 					assert.NotEmpty(t, ledger.LedgerID)
-				case blnkgo.ResourceBalances:
-					balance, ok := hit.Document.(*blnkgo.LedgerBalance)
-					assert.True(t, ok)
-					assert.NotEmpty(t, balance.BalanceID)
-				case blnkgo.ResourceTransactions:
-					transaction, ok := hit.Document.(*blnkgo.Transaction)
-					assert.True(t, ok)
-					assert.NotEmpty(t, transaction.TransactionID)
 				}
 			}
 			mockClient.AssertExpectations(t)

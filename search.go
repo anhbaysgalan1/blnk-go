@@ -1,7 +1,6 @@
 package blnkgo
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -32,6 +31,10 @@ type SearchResponse struct {
 	Hits         []SearchHit `json:"hits"`
 }
 
+type SearchHit struct {
+	Document Document `json:"document"`
+}
+
 type Document interface {
 	GetCreatedAt() time.Time
 	GetMetaData() map[string]interface{}
@@ -46,11 +49,12 @@ func (b *LedgerBalance) GetMetaData() map[string]interface{} { return b.MetaData
 func (t *Transaction) GetCreatedAt() time.Time             { return t.CreatedAt }
 func (t *Transaction) GetMetaData() map[string]interface{} { return t.MetaData }
 
-type SearchHit struct {
-	Document json.RawMessage `json:"document"`
-}
-
 func (s *SearchService) SearchDocument(params SearchParams, resource ResourceType) (*SearchResponse, *http.Response, error) {
+	// Validate search query
+	if params.Q == "" {
+		return nil, nil, fmt.Errorf("search query is required")
+	}
+
 	endpoint := fmt.Sprintf("search/%s", resource)
 	req, err := s.client.NewRequest(endpoint, http.MethodPost, params)
 	if err != nil {
@@ -61,32 +65,6 @@ func (s *SearchService) SearchDocument(params SearchParams, resource ResourceTyp
 	resp, err := s.client.CallWithRetry(req, searchResp)
 	if err != nil {
 		return nil, resp, err
-	}
-
-	// Convert raw messages to proper types based on resource
-	for i, hit := range searchResp.Hits {
-		var doc Document
-		switch resource {
-		case ResourceLedgers:
-			var ledger Ledger
-			if err := json.Unmarshal(hit.Document, &ledger); err != nil {
-				return nil, resp, err
-			}
-			doc = &ledger
-		case ResourceBalances:
-			var balance LedgerBalance
-			if err := json.Unmarshal(hit.Document, &balance); err != nil {
-				return nil, resp, err
-			}
-			doc = &balance
-		case ResourceTransactions:
-			var tx Transaction
-			if err := json.Unmarshal(hit.Document, &tx); err != nil {
-				return nil, resp, err
-			}
-			doc = &tx
-		}
-		searchResp.Hits[i].Document = doc
 	}
 
 	return searchResp, resp, nil
