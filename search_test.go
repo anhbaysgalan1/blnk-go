@@ -1,6 +1,7 @@
 package blnkgo_test
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"testing"
@@ -43,6 +44,16 @@ func TestSearchService_SearchDocument(t *testing.T) {
 			statusCode:  http.StatusOK,
 			setupMocks: func(m *MockClient) {
 				fixedTime := time.Date(2024, time.February, 20, 5, 28, 3, 0, time.UTC)
+				ledger := &blnkgo.Ledger{
+					LedgerID:  "ldg_073f7ffe-9dfd-42ce-aa50-d1dca1788adc",
+					Name:      "World Ledger",
+					CreatedAt: fixedTime,
+					MetaData: map[string]interface{}{
+						"type": "main",
+					},
+				}
+
+				docBytes, _ := json.Marshal(ledger)
 				expectedResponse := &blnkgo.SearchResponse{
 					Found:        1,
 					OutOf:        1,
@@ -50,14 +61,7 @@ func TestSearchService_SearchDocument(t *testing.T) {
 					SearchTimeMs: 1,
 					Hits: []blnkgo.SearchHit{
 						{
-							Document: &blnkgo.Ledger{
-								LedgerID:  "ldg_073f7ffe-9dfd-42ce-aa50-d1dca1788adc",
-								Name:      "World Ledger",
-								CreatedAt: fixedTime,
-								MetaData: map[string]interface{}{
-									"type": "main",
-								},
-							},
+							Document: docBytes,
 						},
 					},
 				}
